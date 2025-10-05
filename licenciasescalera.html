@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor de Códigos</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #0f1724; color: #e6eef8; padding: 20px; }
+  h1 { color: #ff8a00; margin-bottom: 12px; }
+  input, select, button { padding: 6px 10px; margin: 4px 0; border-radius: 6px; border: none; }
+  button { background: #ff8a00; color: #07121b; cursor: pointer; }
+  button:hover { background: #ffb057; }
+  .codes-list { margin-top: 12px; max-height: 400px; overflow-y: auto; }
+  .code-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); margin: 4px 0; padding: 8px 12px; border-radius: 6px; font-family: monospace; }
+  .used { text-decoration: line-through; opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<h1>Gestor de Códigos</h1>
+
+<div>
+  <label>Cantidad de códigos a generar:</label>
+  <input type="number" id="genCount" value="50" min="1" />
+  <label>Patrón:</label>
+  <select id="pattern">
+    <option value="4-4-4">XXXX-XXXX-XXXX</option>
+    <option value="5-5">XXXXX-XXXXX</option>
+    <option value="6-4">XXXXXX-XXXX</option>
+  </select>
+  <button id="genNow">Generar ahora</button>
+  <button id="exportBtn">Exportar .txt</button>
+</div>
+
+<div class="codes-list" id="codesList"></div>
+
+<script>
+// --- Storage keys ---
+const KEY_VALID = 'esc_validCodes_v1';
+const KEY_USED = 'esc_usedCodes_v1';
+
+// --- Helpers ---
+function loadValid(){ return JSON.parse(localStorage.getItem(KEY_VALID)||'[]'); }
+function saveValid(arr){ localStorage.setItem(KEY_VALID, JSON.stringify(arr)); }
+function loadUsed(){ return JSON.parse(localStorage.getItem(KEY_USED)||'[]'); }
+function saveUsed(arr){ localStorage.setItem(KEY_USED, JSON.stringify(arr)); }
+
+// Generar segmento de código
+function genSegment(len){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s=''; for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+
+// Generar código según patrón
+function genCodeFromPattern(pattern){
+  const parts = pattern.split('-').map(p=>parseInt(p));
+  return parts.map(p=>genSegment(p)).join('-');
+}
+
+// Renderizar lista de códigos
+const codesListEl = document.getElementById('codesList');
+function renderCodes(){
+  const valid = loadValid();
+  const used = loadUsed();
+  codesListEl.innerHTML='';
+  if(valid.length===0){
+    codesListEl.innerHTML='<div>No hay códigos generados.</div>';
+    return;
+  }
+  valid.forEach(code=>{
+    const div = document.createElement('div');
+    div.className = 'code-item' + (used.includes(code)?' used':'');
+    div.textContent = code;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copiar';
+    copyBtn.addEventListener('click', ()=>navigator.clipboard.writeText(code).then(()=>alert('Copiado: '+code)));
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.textContent = used.includes(code)?'Desmarcar':'Marcar usado';
+    toggleBtn.addEventListener('click', ()=>{
+      let u = loadUsed();
+      if(used.includes(code)){
+        u = u.filter(c=>c!==code);
+      } else {
+        u.push(code);
+      }
+      saveUsed(u);
+      renderCodes();
+    });
+
+    const container = document.createElement('div');
+    container.style.display='flex'; container.style.gap='6px';
+    container.appendChild(toggleBtn); container.appendChild(copyBtn);
+    div.appendChild(container);
+
+    codesListEl.appendChild(div);
+  });
+}
+
+// Generar códigos
+document.getElementById('genNow').addEventListener('click', ()=>{
+  const count = parseInt(document.getElementById('genCount').value)||50;
+  const pattern = document.getElementById('pattern').value;
+  const arr = loadValid();
+  for(let i=0;i<count;i++){
+    arr.push(genCodeFromPattern(pattern));
+  }
+  saveValid(arr);
+  renderCodes();
+});
+
+// Exportar .txt
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const valid = loadValid();
+  if(valid.length===0){ alert('No hay códigos para exportar'); return; }
+  const blob = new Blob([valid.join('\n')], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='codigos.txt'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+// Init
+renderCodes();
+</script>
+
+</body>
+</html>

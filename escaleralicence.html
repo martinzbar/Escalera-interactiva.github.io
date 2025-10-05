@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Escalera - Licencia / Generador de códigos</title>
+<style>
+  :root{
+    --bg:#0f1724; --panel:#0b1220; --accent:#ff8a00; --muted:#98a0b3; --glass: rgba(255,255,255,0.03);
+  }
+  body{font-family:Inter,Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#04102a 0%, #07142b 60%, #07131a 100%); color:#e6eef8; margin:0; min-height:100vh;}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.03);background:linear-gradient(90deg,rgba(255,255,255,0.02), transparent);}
+  h1{font-size:18px;margin:0}
+  main{display:grid;grid-template-columns:360px 1fr;gap:18px;padding:18px}
+  .card{background:var(--panel);padding:14px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input, select, button, textarea {width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:var(--glass);color:inherit;box-sizing:border-box}
+  button{cursor:pointer;background:linear-gradient(90deg,var(--accent), #ffb057);color:#07121b;font-weight:700;border:none}
+  .small{font-size:13px;color:var(--muted)}
+  .codes-list{max-height:240px;overflow:auto;padding:6px;border-radius:8px;background:rgba(0,0,0,0.15);margin-top:8px}
+  .code-item{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;margin-bottom:6px;background:rgba(255,255,255,0.02);font-family:monospace}
+  .used{opacity:0.45;text-decoration:line-through}
+  .controls{display:flex;gap:8px;margin-top:8px}
+  iframe{width:100%;height:100vh;border:0;border-radius:10px;}
+  .admin-lock{display:flex;gap:8px;align-items:center}
+  .top-note{font-size:13px;color:var(--muted);margin-top:6px}
+  .row{display:flex;gap:8px}
+  .flex{display:flex;gap:8px;align-items:center}
+  footer{padding:12px 20px;color:var(--muted);font-size:13px}
+  .danger{background:linear-gradient(90deg,#ff6b6b,#ff8a8a);color:#1b0505}
+</style>
+</head>
+<body>
+
+<header>
+  <img src="" alt="logo" style="width:38px;height:38px;border-radius:8px;background:linear-gradient(90deg,#ff8a00,#ffb057)" />
+  <div>
+    <h1>Escalera — acceso con licencia</h1>
+    <div class="top-note">Usa códigos de un solo uso. Panel de administración para generar y exportar códigos.</div>
+  </div>
+</header>
+
+<main>
+  <!-- PANEL LATERAL: ingreso de código + estado -->
+  <div class="card">
+    <h2 style="margin:0 0 8px 0">Ingresar código</h2>
+
+    <label for="codeInput">Pegar código</label>
+    <input id="codeInput" placeholder="AAAA-BBBB-CCCC" autocomplete="off" />
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="redeemBtn">Canjear</button>
+      <button id="demoUnlock" class="small">Desbloqueo demo</button>
+    </div>
+    <div id="redeemMessage" class="small" style="margin-top:10px;color:var(--muted)"></div>
+
+    <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+    <div>
+      <div class="small">Estado de la licencia en este navegador:</div>
+      <div id="licenseState" style="font-weight:700;margin-top:6px">— No desbloqueado —</div>
+      <div class="small" style="margin-top:8px">Si estás desbloqueado, el juego se mostrará abajo y no volverás a pedir código en este navegador.</div>
+    </div>
+
+    <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+    <div class="small">¿Sos el administrador?</div>
+    <div class="admin-lock" style="margin-top:8px">
+      <input id="adminPass" type="password" placeholder="Pass admin" />
+      <button id="adminLogin">Entrar</button>
+    </div>
+
+    <div id="adminPanelWrapper" style="display:none;margin-top:12px">
+      <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+      <h3 style="margin:0 0 8px 0">Panel de administración</h3>
+
+      <label>Generar códigos</label>
+      <div style="display:flex;gap:8px">
+        <input id="genCount" type="number" min="1" value="50" />
+        <select id="pattern">
+          <option value="4-4-4">XXXX-XXXX-XXXX</option>
+          <option value="5-5">XXXXX-XXXXX</option>
+          <option value="6-4">XXXXXX-XXXX</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="genNow">Generar ahora</button>
+        <button id="startAuto">Iniciar generador</button>
+        <button id="stopAuto" disabled class="danger">Detener</button>
+      </div>
+      <div class="small" style="margin-top:6px">Velocidad auto: <input id="perMinute" type="number" value="600" min="1" style="width:90px;margin-left:8px" /> códigos / minuto</div>
+
+      <label style="margin-top:12px">Lista de códigos (click para marcar usado)</label>
+      <div class="codes-list" id="codesList"></div>
+
+      <div class="controls">
+        <button id="exportBtn">Exportar .txt</button>
+        <button id="clearUsed">Borrar usados</button>
+        <button id="wipeAll" class="danger">Borrar todo</button>
+      </div>
+      <div class="small" style="margin-top:8px">Nota: los códigos marcados "usados" se muestran tachados. Si quieres control global, necesitás un backend.</div>
+    </div>
+  </div>
+
+  <!-- ZONA DE JUEGO / IFRAME -->
+  <div class="card" id="gameCard" style="padding:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <strong>Juego</strong>
+        <div class="small">Si estás desbloqueado, el juego se mostrará aquí.</div>
+      </div>
+      <div>
+        <button id="openInNew" class="small">Abrir en nueva pestaña</button>
+      </div>
+    </div>
+
+    <div id="gameWrapper" style="background:#020416;border-radius:10px;overflow:hidden">
+      <!-- Aquí se inyectará el iframe cuando esté desbloqueado -->
+      <div id="lockedOverlay" style="padding:40px;text-align:center">
+        <div style="font-size:20px;font-weight:700;margin-bottom:8px">🔒 Juego protegido</div>
+        <div class="small">Ingresá un código válido en el panel izquierdo para abrir el juego.</div>
+        <div class="small" style="margin-top:8px;color:var(--muted)">El archivo del juego detectado: <strong>escalera.html</strong></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>Hecho por vos. Archivo del juego detectado: <strong>escalera.html</strong>.</span>
+  <span style="float:right">Aviso: para control de un solo uso global, necesitás un servidor.</span>
+</footer>
+
+<script>
+/*
+  index.html - Cliente que:
+  - Permite canjear códigos (validados contra la lista "validCodes" en localStorage)
+  - Marca códigos como usados cuando se canjean
+  - Si canjeo OK => guarda flag unlocked=true en localStorage para que el juego sea permanente en ese navegador
+  - Panel admin (protección con pass local) que genera códigos y puede exportarlos
+  - Auto-generador configurable (códigos/minuto)
+  - NOTA: Para control real de un solo-uso entre usuarios necesitas backend. Esto es client-only.
+*/
+
+// --- CONFIG ---
+const ADMIN_PASSWORD_HASH = 'c4c5f59b0cd6f0f4f6b6e3b3a7c9b9db'; // valor por defecto (no seguro). Puedes cambiar aquí.
+const GAME_FILE = 'escalera.html'; // nombre del archivo del juego (debe estar en la misma carpeta)
+
+// --- HELPERS CRIPTO (simple, no para seguridad real) ---
+function simpleHash(str) {
+  // hash ligero (no seguro). Suficiente para "no mostrar" la contraseña en claro en la página.
+  let h = 2166136261 >>> 0;
+  for (let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h,16777619) >>> 0;
+  }
+  return h.toString(16);
+}
+
+// --- STORAGE KEYS ---
+const KEY_VALID = 'esc_validCodes_v1';
+const KEY_USED = 'esc_usedCodes_v1';
+const KEY_UNLOCKED = 'esc_unlocked_v1';
+const KEY_ADMIN = 'esc_admin_pass_hash_v1';
+
+// init admin hash in storage once (optional)
+if (!localStorage.getItem(KEY_ADMIN)) {
+  localStorage.setItem(KEY_ADMIN, ADMIN_PASSWORD_HASH);
+}
+
+// Utilities for codes
+function loadValid(){ try{ return JSON.parse(localStorage.getItem(KEY_VALID) || '[]') }catch(e){ return [] } }
+function saveValid(arr){ localStorage.setItem(KEY_VALID, JSON.stringify(arr)) }
+function loadUsed(){ try{ return JSON.parse(localStorage.getItem(KEY_USED) || '[]') }catch(e){ return [] } }
+function saveUsed(arr){ localStorage.setItem(KEY_USED, JSON.stringify(arr)) }
+function isUnlocked(){ return localStorage.getItem(KEY_UNLOCKED) === '1' }
+function setUnlocked(){ localStorage.setItem(KEY_UNLOCKED, '1') }
+function clearUnlocked(){ localStorage.removeItem(KEY_UNLOCKED) }
+
+// code gen
+function genSegment(len){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin I,O,1,0 para evitar confusiones
+  let s='';
+  for(let i=0;i<len;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function genCodeFromPattern(pattern){
+  // pattern like "4-4-4" => generate segments
+  const parts = pattern.split('-').map(p=>parseInt(p,10));
+  return parts.map(p=>genSegment(p)).join('-');
+}
+
+// UI refs
+const codesListEl = document.getElementById('codesList');
+const adminPanelWrapper = document.getElementById('adminPanelWrapper');
+const adminLoginBtn = document.getElementById('adminLogin');
+const adminPassInput = document.getElementById('adminPass');
+const genNowBtn = document.getElementById('genNow');
+const genCountInput = document.getElementById('genCount');
+const patternSelect = document.getElementById('pattern');
+const exportBtn = document.getElementById('exportBtn');
+const clearUsedBtn = document.getElementById('clearUsed');
+const wipeAllBtn = document.getElementById('wipeAll');
+const startAutoBtn = document.getElementById('startAuto');
+const stopAutoBtn = document.getElementById('stopAuto');
+const perMinuteInput = document.getElementById('perMinute');
+
+const redeemBtn = document.getElementById('redeemBtn');
+const codeInput = document.getElementById('codeInput');
+const redeemMessage = document.getElementById('redeemMessage');
+const licenseState = document.getElementById('licenseState');
+const lockedOverlay = document.getElementById('lockedOverlay');
+const gameWrapper = document.getElementById('gameWrapper');
+const openInNewBtn = document.getElementById('openInNew');
+const demoUnlockBtn = document.getElementById('demoUnlock');
+
+let autoGenTimer = null;
+
+// Render list
+function renderCodes(){
+  const valid = loadValid();
+  const used = loadUsed();
+  codesListEl.innerHTML = '';
+  if (valid.length === 0) { codesListEl.innerHTML = '<div class="small">No hay códigos generados.</div>'; return; }
+  valid.forEach(code=>{
+    const isUsed = used.includes(code);
+    const div = document.createElement('div');
+    div.className = 'code-item' + (isUsed ? ' used' : '');
+    const left = document.createElement('div'); left.textContent = code;
+    const right = document.createElement('div');
+    right.style.display='flex'; right.style.gap='6px';
+    const markBtn = document.createElement('button'); markBtn.textContent = isUsed ? 'Desmarcar' : 'Marcar usado'; markBtn.style.padding='6px';
+    markBtn.addEventListener('click', ()=>{
+      const u = loadUsed();
+      if (isUsed) {
+        const idx = u.indexOf(code); if (idx!==-1) u.splice(idx,1);
+      } else {
+        u.push(code);
+      }
+      saveUsed(u);
+      renderCodes();
+    });
+    const copyBtn = document.createElement('button'); copyBtn.textContent='Copiar'; copyBtn.style.padding='6px';
+    copyBtn.addEventListener('click', ()=>{ navigator.clipboard?.writeText(code).then(()=>alert('Copiado: '+code)) });
+    right.appendChild(markBtn); right.appendChild(copyBtn);
+    div.appendChild(left); div.appendChild(right);
+    codesListEl.appendChild(div);
+  });
+}
+
+// Admin login
+adminLoginBtn.addEventListener('click', ()=>{
+  const entered = adminPassInput.value || '';
+  const storedHash = localStorage.getItem(KEY_ADMIN) || ADMIN_PASSWORD_HASH;
+  if (simpleHash(entered) === storedHash) {
+    adminPanelWrapper.style.display = 'block';
+    adminPassInput.value = '';
+    alert('Acceso admin concedido');
+    renderCodes();
+  } else {
+    alert('Contraseña incorrecta');
+  }
+});
+
+// Generate now
+genNowBtn.addEventListener('click', ()=>{
+  const count = Math.max(1, parseInt(genCountInput.value||'1',10));
+  const pattern = patternSelect.value;
+  const arr = loadValid();
+  for(let i=0;i<count;i++){
+    arr.push(genCodeFromPattern(pattern));
+  }
+  saveValid(arr);
+  renderCodes();
+});
+
+// Auto generator controls
+startAutoBtn.addEventListener('click', ()=>{
+  const perMin = Math.max(1, parseInt(perMinuteInput.value||'60',10));
+  const perSec = perMin/60;
+  startAutoBtn.disabled = true;
+  stopAutoBtn.disabled = false;
+  // generate in bursts each second
+  autoGenTimer = setInterval(()=>{
+    const n = Math.ceil(perSec);
+    const pattern = patternSelect.value;
+    const arr = loadValid();
+    for(let i=0;i<n;i++) arr.push(genCodeFromPattern(pattern));
+    saveValid(arr);
+    renderCodes();
+  }, 1000);
+});
+stopAutoBtn.addEventListener('click', ()=>{
+  if (autoGenTimer) clearInterval(autoGenTimer);
+  autoGenTimer = null;
+  startAutoBtn.disabled = false;
+  stopAutoBtn.disabled = true;
+});
+
+// export
+exportBtn.addEventListener('click', ()=>{
+  const valid = loadValid();
+  if (valid.length===0){ alert('No hay códigos para exportar'); return; }
+  const blob = new Blob([valid.join('\\n')], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='codigos.txt'; a.click(); URL.revokeObjectURL(url);
+});
+
+// clear used
+clearUsedBtn.addEventListener('click', ()=>{
+  if (!confirm('Borrar la lista de códigos usados?')) return;
+  saveUsed([]);
+  renderCodes();
+});
+
+// wipe all
+wipeAllBtn.addEventListener('click', ()=>{
+  if (!confirm('BORRAR TODOS los códigos generados (esto no se puede deshacer en este navegador).')) return;
+  saveValid([]); saveUsed([]); renderCodes();
+});
+
+// Redeem flow
+redeemBtn.addEventListener('click', tryRedeem);
+codeInput.addEventListener('keydown', (e)=>{ if (e.key==='Enter') tryRedeem() });
+
+function tryRedeem(){
+  const code = (codeInput.value||'').trim().toUpperCase();
+  if (!code) { redeemMessage.textContent='Ingresá un código.'; return; }
+  const valid = loadValid();
+  const used = loadUsed();
+  if (!valid.includes(code)) {
+    redeemMessage.style.color = '#ff8080';
+    redeemMessage.textContent = 'Código inválido.';
+    return;
+  }
+  if (used.includes(code)) {
+    redeemMessage.style.color = '#ff8080';
+    redeemMessage.textContent = 'Ese código ya fue usado.';
+    return;
+  }
+  // marcar usado y desbloquear en este navegador
+  used.push(code); saveUsed(used);
+  setUnlocked();
+  updateLicenseState();
+  renderCodes();
+  redeemMessage.style.color = '#bfffbf';
+  redeemMessage.textContent = '¡Código aceptado! Juego desbloqueado en este navegador.';
+  codeInput.value='';
+  showGame();
+}
+
+// Show game if unlocked
+function updateLicenseState(){
+  if (isUnlocked()) {
+    licenseState.textContent = '✅ Desbloqueado (este navegador)';
+    licenseState.style.color = '#bfffbf';
+  } else {
+    licenseState.textContent = '🔒 No desbloqueado';
+    licenseState.style.color = '#f6b884';
+  }
+}
+updateLicenseState();
+
+// Inject iframe
+function showGame(){
+  if (!isUnlocked()) return;
+  lockedOverlay.style.display='none';
+  // remove previous iframe if any
+  const existing = document.querySelector('#gameWrapper iframe');
+  if (existing) return;
+  const iframe = document.createElement('iframe');
+  iframe.src = GAME_FILE;
+  iframe.title = 'Juego Escalera';
+  iframe.loading = 'eager';
+  iframe.style.width='100%';
+  iframe.style.height='80vh';
+  iframe.style.border='0';
+  document.getElementById('gameWrapper').appendChild(iframe);
+}
+
+// open new tab
+openInNewBtn.addEventListener('click', ()=>{
+  if (isUnlocked()) {
+    window.open(GAME_FILE, '_blank');
+  } else {
+    alert('Primero desbloqueá el juego en este navegador ingresando un código válido.');
+  }
+});
+
+// demo unlock (para testing)
+demoUnlockBtn.addEventListener('click', ()=>{
+  if (confirm('Desbloqueo demo solo para probar (no consume códigos). Continuar?')) {
+    setUnlocked(); updateLicenseState(); showGame();
+  }
+});
+
+// init render
+renderCodes();
+if (isUnlocked()) showGame();
+
+// Optional: on load, check if local valid list is empty and prefill small set for prueba (solo si admin no configurado)
+(function prefillIfEmpty(){
+  const valid = loadValid();
+  if (valid.length === 0) {
+    // genera 20 códigos de ejemplo (no los marques usados)
+    const arr=[]; for(let i=0;i<20;i++) arr.push(genCodeFromPattern('4-4-4'));
+    saveValid(arr);
+    renderCodes();
+  }
+})();
+
+</script>
+</body>
+</html>
